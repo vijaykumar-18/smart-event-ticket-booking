@@ -1,0 +1,38 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Environment Variables & Secrets
+.env
+*.env.local
+
+# Python compiled cache & database
+__pycache__/
+*.py[cod]
+*$py.class
+*.db
+*.sqlite3
+smartevent.db
+
+# Generated QR code static passes
+backend/static/qrcodes/*.png
+!backend/static/qrcodes/.gitkeep
+
+# Node / React build and dependencies
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.npm
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
