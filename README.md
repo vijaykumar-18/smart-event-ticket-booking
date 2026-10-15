@@ -20,6 +20,10 @@ Built with **FastAPI** for high-performance backend workflows and **React (Vite)
 - **Admin dashboard and analytics**: KPI summaries for users, events, tickets, bookings, and confirmed platform revenue; daily ticket sales, monthly booking trends, popular events, and top revenue-generating events.
 - **Admin controls**: Review all users, events, and bookings, and manage user roles.
 - **Event lifecycle**: Upcoming, ongoing, completed, and cancelled states with attendee notifications on updates/cancellations.
+- **Live inventory and announcements**: Event pages receive ticket counts and organizer announcements over WebSockets; reservation changes remain protected by an atomic database update.
+- **Personal discovery**: Trending events, viewed/booked-category recommendations, city preference, and price-range filtering.
+- **Wishlist and account profile**: Save events, edit profile details, upload a validated profile image, and review booking totals.
+- **Chat assistant**: Event discovery, booking lookup, and ticket FAQs, with optional OpenAI-compatible responses configured only on the backend.
 - **India-ready listings**: INR pricing, required venue and Indian city fields, and Indian event sample listings.
 
 ---
@@ -52,6 +56,9 @@ Built with **FastAPI** for high-performance backend workflows and **React (Vite)
 - `coupons`: Promotional offers, expiry and usage limits, optionally scoped to an event and its organizer
 - `reviews`: One rating per attendee and event, with a 1–5 star rating
 - `notifications`: User activity notifications (`id`, `user_id`, `title`, `message`, `type`, `is_read`); types include EVENT, BOOKING, PAYMENT, and SYSTEM
+- `wishlist`: Saved user/event pairs with a unique constraint per user and event
+- `event_views`: Per-user event view counts and last-viewed timestamps for recommendations
+- `event_updates`: Organizer/admin announcements, including an important flag
 
 ---
 
@@ -69,7 +76,7 @@ Built with **FastAPI** for high-performance backend workflows and **React (Vite)
    ```bash
    cd backend
    ```
-2. Copy `.env.example` to `.env` and set `SECRET_KEY` to a random value with at least 32 characters. For Stripe test payments, set `STRIPE_SECRET_KEY` to a rotated test-mode secret key in this backend `.env` file; never put the secret in the frontend or commit `.env`. Set `FRONTEND_URL` to the address serving the React app. Registration supports attendee (USER) and event organizer (ORGANIZER) accounts; ADMIN access is assigned separately. To bootstrap an administrator, register an account with the desired email and set `INITIAL_ADMIN_EMAIL` to that email before starting the backend.
+2. Copy `.env.example` to `.env` and set `SECRET_KEY` to a random value with at least 32 characters. For Stripe test payments, set `STRIPE_SECRET_KEY` to a rotated test-mode secret key in this backend `.env` file; never put the secret in the frontend or commit `.env`. Set `FRONTEND_URL` to the address serving the React app. To enable AI-generated assistant answers, set `CHATBOT_API_KEY` on the backend; `CHATBOT_BASE_URL` and `CHATBOT_MODEL` can select an OpenAI-compatible provider. Without a chatbot key, event search, booking lookup, and FAQ responses use the local assistant. Registration supports attendee (USER) and event organizer (ORGANIZER) accounts; ADMIN access is assigned separately. To bootstrap an administrator, register an account with the desired email and set `INITIAL_ADMIN_EMAIL` to that email before starting the backend.
 3. Install dependencies and start the API:
    ```bash
    pip install -r requirements.txt
@@ -100,7 +107,9 @@ Administrators can create and list coupons through `POST /api/coupons` and `GET 
 
 Reviews are public to read at `GET /api/events/{event_id}/reviews`. A signed-in attendee can create a review at `POST /api/events/{event_id}/reviews`, and edit or delete their own review at `/api/reviews/{review_id}`. A review is allowed only after a confirmed booking for an event that has ended.
 
-Event discovery accepts `search`, `category`, `location`, `start_date`, `end_date`, and `sort` (`date`, `popularity`, or `price`) on `GET /api/events`. Notifications include payment outcomes and can be marked individually or in bulk as read.
+Event discovery accepts `search`, `category`, `location`, `start_date`, `end_date`, `min_price`, `max_price`, and `sort` (`date`, `popularity`, or `price`) on `GET /api/events`. `GET /api/events/trending` returns popular events; authenticated attendees can fetch `GET /api/events/recommendations`. Event detail clients may connect to `/api/events/{event_id}/availability` over WebSocket for inventory and announcement updates.
+
+Attendees can manage `/api/wishlist/{event_id}` and list `/api/wishlist`. Organizers can publish announcements at `/api/events/{event_id}/updates`; updates are public to read. Authenticated profile routes support `GET`/`PUT /api/auth/profile`, `GET /api/auth/profile/summary`, and `POST /api/auth/profile/picture`. The assistant accepts `POST /api/chat` with a message and optional bounded conversation history. Notifications include payment outcomes and can be marked individually or in bulk as read.
 
 ## 🛡️ Administrator Dashboard
 
@@ -123,5 +132,6 @@ All administrator API endpoints require an authenticated administrator account:
 | `GET` | `/api/admin/bookings` | List bookings. Accepts optional `start_date` and `end_date` query parameters. |
 
 The analytics endpoint reports total registered users and events, confirmed-booking ticket and revenue totals, booking counts, daily ticket quantities, monthly confirmed-booking counts, and the most popular and highest-revenue events.
-#   s m a r t - e v e n t - t i c k e t - b o o k i n g  
+#   s m a r t - e v e n t - t i c k e t - b o o k i n g 
+ 
  

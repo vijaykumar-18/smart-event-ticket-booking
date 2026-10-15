@@ -1,12 +1,13 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session, joinedload
 
 from app import auth, models, schemas
 from app.database import get_db
 from app.event_lifecycle import notify_event_bookers, sync_event_statuses
+from app.realtime import availability_connections
 
 router = APIRouter(
     prefix="/api/organizer",
@@ -59,24 +60,27 @@ def get_organizer_events(
 def update_event(
     event_id: int,
     payload: schemas.EventUpdate,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(auth.require_roles(models.UserRole.ORGANIZER)),
     db: Session = Depends(get_db),
 ):
     event = owned_event(db, event_id, current_user.id)
     changes = payload.model_dump(exclude_unset=True)
     if "total_tickets" in changes:
-        confirmed_tickets = db.query(
+        reserved_tickets = db.query(
             func.coalesce(func.sum(models.Booking.ticket_quantity), 0)
         ).filter(
             models.Booking.event_id == event.id,
-            models.Booking.booking_status == models.BookingStatus.CONFIRMED,
+            models.Booking.booking_status.in_(
+                [models.BookingStatus.PENDING, models.BookingStatus.CONFIRMED]
+            ),
         ).scalar()
-        if changes["total_tickets"] < confirmed_tickets:
+        if changes["total_tickets"] < reserved_tickets:
             raise HTTPException(
                 status_code=400,
-                detail="Total tickets cannot be lower than tickets already sold",
+                detail="Total tickets cannot be lower than tickets already reserved or sold",
             )
-        changes["available_tickets"] = changes["total_tickets"] - confirmed_tickets
+        changes["available_tickets"] = changes["total_tickets"] - reserved_tickets
 
     new_start = changes.get("event_date", event.event_date)
     new_end = changes.get("event_end_date", event.event_end_date)
@@ -99,12 +103,20 @@ def update_event(
     db.commit()
     sync_event_statuses(db)
     db.refresh(event)
+    if "total_tickets" in changes:
+        background_tasks.add_task(
+            availability_connections.broadcast,
+            event.id,
+            event.available_tickets,
+            event.event_status.value,
+        )
     return event
 
 
 @router.post("/events/{event_id}/cancel", response_model=schemas.EventResponse)
 def cancel_event(
     event_id: int,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(auth.require_roles(models.UserRole.ORGANIZER)),
     db: Session = Depends(get_db),
 ):
@@ -129,6 +141,12 @@ def cancel_event(
     )
     db.commit()
     db.refresh(event)
+    background_tasks.add_task(
+        availability_connections.broadcast,
+        event.id,
+        event.available_tickets,
+        event.event_status.value,
+    )
     return event
 
 

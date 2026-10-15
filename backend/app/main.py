@@ -13,13 +13,16 @@ from app.routers import (
     admin,
     auth,
     bookings,
+    chatbot,
     coupons,
+    event_updates,
     events,
     notifications,
     organizer,
     payments,
     reviews,
     tickets,
+    wishlist,
 )
 from app.config import ALLOWED_ORIGINS, INITIAL_ADMIN_EMAIL
 from app.event_lifecycle import sync_event_statuses
@@ -41,6 +44,10 @@ def migrate_existing_schema():
             connection.execute(text(
                 "ALTER TABLE users ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'USER'"
             ))
+        if "location" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN location VARCHAR(150)"))
+        if "profile_picture_url" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN profile_picture_url VARCHAR(500)"))
         if "organizer_id" not in event_columns:
             connection.execute(text(
                 "ALTER TABLE events ADD COLUMN organizer_id INTEGER REFERENCES users(id)"
@@ -210,6 +217,9 @@ app.include_router(admin.router)
 app.include_router(coupons.router)
 app.include_router(payments.router)
 app.include_router(reviews.router)
+app.include_router(event_updates.router)
+app.include_router(wishlist.router)
+app.include_router(chatbot.router)
 
 def promote_initial_admin():
     if not INITIAL_ADMIN_EMAIL:

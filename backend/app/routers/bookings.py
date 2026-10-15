@@ -1,17 +1,19 @@
 from datetime import datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas, auth
 from app.booking_utils import calculate_coupon_quote
+from app.realtime import availability_connections
 
 router = APIRouter(prefix="/api/bookings", tags=["Bookings"])
 
 @router.post("", response_model=schemas.BookingResponse, status_code=status.HTTP_201_CREATED)
 def book_tickets(
     payload: schemas.BookingCreate,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(auth.require_roles(models.UserRole.USER)),
     db: Session = Depends(get_db)
 ):
@@ -69,6 +71,13 @@ def book_tickets(
     ))
 
     db.commit()
+    db.refresh(event)
+    background_tasks.add_task(
+        availability_connections.broadcast,
+        event.id,
+        event.available_tickets,
+        event.event_status.value,
+    )
     db.refresh(new_booking)
     return new_booking
 
@@ -101,6 +110,7 @@ def get_booking(
 @router.post("/{booking_id}/cancel", response_model=schemas.BookingResponse)
 def cancel_booking(
     booking_id: int,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(auth.require_roles(models.UserRole.USER)),
     db: Session = Depends(get_db)
 ):
@@ -161,5 +171,12 @@ def cancel_booking(
             type=models.NotificationType.BOOKING,
         ))
     db.commit()
+    db.refresh(booking.event)
+    background_tasks.add_task(
+        availability_connections.broadcast,
+        booking.event.id,
+        booking.event.available_tickets,
+        booking.event.event_status.value,
+    )
     db.refresh(booking)
     return booking

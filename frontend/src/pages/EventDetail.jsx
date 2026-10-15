@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, MapPin } from 'lucide-react';
-import api from '../api/axios';
+import api, { apiBaseUrl } from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
 import { formatINR } from '../utils/currency';
 
@@ -16,6 +16,11 @@ export default function EventDetail() {
   const [eventError, setEventError] = useState('');
   const [error, setError] = useState('');
   const [reviews, setReviews] = useState([]);
+  const [updates, setUpdates] = useState([]);
+  const [updateDraft, setUpdateDraft] = useState('');
+  const [updateImportant, setUpdateImportant] = useState(false);
+  const [postingUpdate, setPostingUpdate] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
   const [averageRating, setAverageRating] = useState(null);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
@@ -40,6 +45,50 @@ export default function EventDetail() {
         setAverageRating(response.data.average_rating);
       })
       .catch(() => setReviewLoadError('Unable to load attendee reviews.'));
+  }, [id]);
+
+  useEffect(() => {
+    let active = true;
+    api.get(`/events/${id}/updates`)
+      .then((response) => { if (active) setUpdates(response.data); })
+      .catch(() => { if (active) setUpdates([]); });
+    return () => { active = false; };
+  }, [id]);
+
+  useEffect(() => {
+    let stopped = false;
+    let reconnectTimer;
+    let socket;
+    const connect = () => {
+      const socketBase = apiBaseUrl.replace(/^http/, 'ws').replace(/\/api\/?$/, '');
+      socket = new WebSocket(`${socketBase}/api/events/${id}/availability`);
+      socket.onmessage = (message) => {
+        try {
+          const update = JSON.parse(message.data);
+          if (update.type === 'announcement') {
+            setUpdates((current) => [update.announcement, ...current.filter((item) => item.id !== update.announcement.id)]);
+            return;
+          }
+          setEvent((current) => current ? {
+            ...current,
+            available_tickets: update.available_tickets,
+            event_status: update.event_status,
+          } : current);
+        } catch {
+          return;
+        }
+      };
+      socket.onclose = () => {
+        if (!stopped) reconnectTimer = window.setTimeout(connect, 2000);
+      };
+      socket.onerror = () => socket.close();
+    };
+    connect();
+    return () => {
+      stopped = true;
+      window.clearTimeout(reconnectTimer);
+      socket?.close();
+    };
   }, [id]);
 
   useEffect(() => {
@@ -102,6 +151,27 @@ export default function EventDetail() {
       setReviewMessage('Your review has been deleted.');
     } catch (requestError) {
       setReviewError(requestError.response?.data?.detail || 'Unable to delete your review.');
+    }
+  };
+
+  const postUpdate = async (updateEvent) => {
+    updateEvent.preventDefault();
+    if (!updateDraft.trim() || postingUpdate) return;
+    setPostingUpdate(true);
+    setUpdateMessage('');
+    try {
+      const response = await api.post(`/events/${id}/updates`, {
+        message: updateDraft.trim(),
+        is_important: updateImportant,
+      });
+      setUpdates((current) => [response.data, ...current]);
+      setUpdateDraft('');
+      setUpdateImportant(false);
+      setUpdateMessage('Update posted.');
+    } catch (requestError) {
+      setUpdateMessage(requestError.response?.data?.detail || 'Unable to post this update.');
+    } finally {
+      setPostingUpdate(false);
     }
   };
 
@@ -212,6 +282,26 @@ export default function EventDetail() {
           </div>
         </div>
       </div>
+
+      <section className="mt-8 border-y border-slate-200 py-6">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div><p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Event announcements</p><h2 className="mt-1 text-xl font-bold text-slate-900">Live updates</h2></div>
+          <span className="text-xs text-slate-500">{updates.length} {updates.length === 1 ? 'update' : 'updates'}</span>
+        </div>
+        {(user?.role === 'ORGANIZER' || user?.role === 'ADMIN') && <form onSubmit={postUpdate} className="mb-5 flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="event-update" className="sr-only">Post an event announcement</label>
+          <input id="event-update" value={updateDraft} onChange={(updateEvent) => setUpdateDraft(updateEvent.target.value)} maxLength={2000} placeholder="Post an event announcement" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+          <label className="flex items-center gap-2 whitespace-nowrap text-xs font-medium text-slate-700"><input type="checkbox" checked={updateImportant} onChange={(updateEvent) => setUpdateImportant(updateEvent.target.checked)} /> Important</label>
+          <button type="submit" disabled={!updateDraft.trim() || postingUpdate} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{postingUpdate ? 'Posting...' : 'Post update'}</button>
+        </form>}
+        {updateMessage && <p role="status" className="mb-3 text-sm text-slate-600">{updateMessage}</p>}
+        {updates.length === 0 ? <p className="text-sm text-slate-500">There are no announcements yet.</p> : <ul className="divide-y divide-slate-200">
+          {updates.map((update) => <li key={update.id} className={`py-4 first:pt-0 ${update.is_important ? 'border-l-4 border-amber-500 pl-3' : ''}`}>
+            <p className="text-sm leading-6 text-slate-800">{update.message}</p>
+            <time className="mt-1 block text-xs text-slate-500">{new Date(update.created_at).toLocaleString()}</time>
+          </li>)}
+        </ul>}
+      </section>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="flex flex-wrap items-end justify-between gap-3">

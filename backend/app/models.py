@@ -54,11 +54,15 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole, native_enum=False), default=UserRole.USER, nullable=False)
+    location = Column(String(150), nullable=True)
+    profile_picture_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     bookings = relationship("Booking", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
     organized_events = relationship("Event", back_populates="organizer")
+    wishlists = relationship("Wishlist", back_populates="user", cascade="all, delete-orphan")
+    event_views = relationship("EventView", back_populates="user", cascade="all, delete-orphan")
 
 class Event(Base):
     __tablename__ = "events"
@@ -86,6 +90,9 @@ class Event(Base):
     bookings = relationship("Booking", back_populates="event")
     organizer = relationship("User", back_populates="organized_events")
     reviews = relationship("Review", back_populates="event", cascade="all, delete-orphan")
+    wishlists = relationship("Wishlist", back_populates="event", cascade="all, delete-orphan")
+    views = relationship("EventView", back_populates="event", cascade="all, delete-orphan")
+    updates = relationship("EventUpdate", back_populates="event", cascade="all, delete-orphan")
 
     @property
     def average_rating(self):
@@ -201,3 +208,39 @@ class Review(Base):
 
     user = relationship("User")
     event = relationship("Event", back_populates="reviews")
+
+class Wishlist(Base):
+    __tablename__ = "wishlist"
+    __table_args__ = (UniqueConstraint("user_id", "event_id", name="uq_wishlist_user_event"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="wishlists")
+    event = relationship("Event", back_populates="wishlists")
+
+class EventView(Base):
+    __tablename__ = "event_views"
+    __table_args__ = (UniqueConstraint("user_id", "event_id", name="uq_event_views_user_event"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False, index=True)
+    view_count = Column(Integer, nullable=False, default=1)
+    viewed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="event_views")
+    event = relationship("Event", back_populates="views")
+
+class EventUpdate(Base):
+    __tablename__ = "event_updates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False, index=True)
+    message = Column(String(2000), nullable=False)
+    is_important = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    event = relationship("Event", back_populates="updates")

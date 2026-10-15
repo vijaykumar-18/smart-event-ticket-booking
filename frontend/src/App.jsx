@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import ChatAssistant from './components/ChatAssistant';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -21,6 +22,8 @@ import {
   OrganizerCoupons,
 } from './pages/OrganizerPages';
 import AdminDashboard from './pages/AdminDashboard';
+import Wishlist from './pages/Wishlist';
+import Profile from './pages/Profile';
 
 export default function App() {
   return (
@@ -38,8 +41,10 @@ export default function App() {
               {/* Protected User Endpoints */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/notifications" element={<Notifications />} />
+                <Route path="/profile" element={<Profile />} />
               </Route>
               <Route element={<ProtectedRoute roles={['USER']} />}>
+                <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/bookings" element={<BookingHistory />} />
                 <Route path="/tickets" element={<Tickets />} />
                 <Route path="/checkout/:eventId" element={<Checkout />} />
@@ -60,6 +65,7 @@ export default function App() {
               </Route>
             </Routes>
           </main>
+          <ChatAssistant />
         </div>
       </BrowserRouter>
     </AuthProvider>

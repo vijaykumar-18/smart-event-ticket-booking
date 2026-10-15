@@ -21,9 +21,22 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: int
     role: UserRole
+    location: Optional[str] = None
+    profile_picture_url: Optional[str] = None
     created_at: datetime
     class Config:
         from_attributes = True
+
+class UserProfileUpdate(BaseModel):
+    username: Optional[str] = Field(default=None, min_length=3, max_length=50)
+    email: Optional[EmailStr] = None
+    location: Optional[str] = Field(default=None, max_length=150)
+
+class BookingSummary(BaseModel):
+    booking_count: int
+    confirmed_bookings: int
+    tickets_booked: int
+    total_spent: float
 
 class Token(BaseModel):
     access_token: str
@@ -117,6 +130,39 @@ class EventResponse(EventBase):
     review_count: int = 0
     class Config:
         from_attributes = True
+
+class EventAnnouncementCreate(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    is_important: bool = False
+
+class EventAnnouncementResponse(BaseModel):
+    id: int
+    event_id: int
+    message: str
+    is_important: bool
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class WishlistResponse(BaseModel):
+    id: int
+    event_id: int
+    created_at: datetime
+    event: EventResponse
+    class Config:
+        from_attributes = True
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=1500)
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+    history: List[ChatMessage] = Field(default_factory=list, max_length=12)
+
+class ChatResponse(BaseModel):
+    response: str
+    events: List[EventResponse] = Field(default_factory=list)
 
 class UserRoleUpdate(BaseModel):
     role: UserRole

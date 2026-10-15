@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, Ticket, User, LogOut, Menu, X } from 'lucide-react';
+import { Calendar, Ticket, User, LogOut, Menu, X, Bookmark } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import NotificationDropdown from './NotificationDropdown';
 
@@ -26,12 +26,16 @@ export default function Navbar() {
             <>
               {user.role === 'USER' && (
                 <>
+                  <Link to="/wishlist" onClick={() => setMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-blue-600 flex items-center gap-1">
+                    <Bookmark className="w-4 h-4" /> Wishlist
+                  </Link>
                   <Link to="/bookings" onClick={() => setMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-blue-600 flex items-center gap-1">
                     <Ticket className="w-4 h-4" /> Bookings
                   </Link>
                   <Link to="/tickets" onClick={() => setMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-blue-600">Tickets</Link>
                 </>
               )}
+              <Link to="/profile" onClick={() => setMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-blue-600">Profile</Link>
               {user.role === 'ORGANIZER' && (
                 <>
                   <Link to="/organizer" onClick={() => setMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-blue-600">Organizer</Link>
