@@ -1,38 +1,83 @@
-# Virtual Environment
+# Virtual Environments
 venv/
 env/
 ENV/
 .venv/
+.venv*/
 
-# Environment Variables & Secrets
+# Environment Variables & Local Secrets
 .env
+.env.*
 *.env.local
+backend/.env
 
-# Python compiled cache & database
+# Python Compiled Cache & Artifacts
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Database Binaries & Migrations Cache
 *.db
 *.sqlite3
 smartevent.db
+backend/*.db
+backend/*.sqlite3
 
-# Generated QR code static passes
+# Static Uploads & QR Code Images
 backend/static/qrcodes/*.png
+backend/static/qrcodes/*.jpg
 !backend/static/qrcodes/.gitkeep
 
-# Node / React build and dependencies
+# Node / Vite / Frontend Build & Dependencies
 node_modules/
 frontend/node_modules/
 dist/
 frontend/dist/
-.npm
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+.stylelintcache
 
-# IDE / Editor configuration
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# IDE & Editor Configuration
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS files
+# Operating System Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
